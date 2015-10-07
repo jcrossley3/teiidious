@@ -1,5 +1,6 @@
 (ns teiidious.core
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.java.jdbc :as sql])
   (:import [org.h2.tools Server RunScript]
            [org.teiid.runtime EmbeddedServer EmbeddedConfiguration]
            [org.teiid.translator.jdbc.h2 H2ExecutionFactory]
@@ -23,7 +24,7 @@
   (with-open [conn (.getConnection ds)]
     (RunScript/execute conn (-> "data/customer-schema.sql" io/resource io/reader))))
 
-(defn make-teiid-server
+(defn teiid-portfolio-server
   [ds]
   (doto (EmbeddedServer.)
     (.addTranslator "translator-h2" (doto (H2ExecutionFactory.)
@@ -38,6 +39,14 @@
               (.setTransactionManager (EmbeddedHelper/getTransactionManager))))
     (.deployVDB (-> "portfolio-vdb.xml" io/resource io/input-stream))))
 
+(defn db-spec
+  [srv]
+  {:factory (fn [&_] (-> srv .getDriver (.connect "jdbc:teiid:Portfolio" nil)))})
+
+(defn query
+  [srv & sql]
+  (sql/query (db-spec srv) sql))
+
 (defn vdbs
   [server]
   (-> server .getAdmin .getVDBs))
@@ -48,4 +57,15 @@
     (.getAttachment TransformationMetadata)
     .getMetadataStore))
 
+(defn dump
+  [metadata]
+  (doseq [[sname s] (.getSchemas metadata) :when (not (#{"SYS" "SYSADMIN" "pg_catalog"} sname))]
+    (println sname)
+    (println "  Tables:")
+    (doseq [[tname t] (.getTables s) :let [t (bean t)]]
+      (println "      " tname)
+      (doseq [c (:columns t) :let [c (bean c)]]
+        (println "        " (:name c))))))
+
 ;;; (-> metadata .getSchemas .getTables .getForeignKeys)
+;;; ignore tables where isSystem = true

@@ -8,6 +8,7 @@
                  [com.h2database/h2 "1.3.152"]
                  [org.jboss.teiid.connectors/translator-file "8.12.0.CR2-SNAPSHOT"]
                  [org.jboss.teiid.connectors/connector-file "8.12.0.CR2-SNAPSHOT" :classifier "lib"]
-                 [org.jboss.teiid.connectors/translator-jdbc "8.12.0.CR2-SNAPSHOT"]]
+                 [org.jboss.teiid.connectors/translator-jdbc "8.12.0.CR2-SNAPSHOT"]
+                 [org.clojure/java.jdbc "0.4.2"]]
   :repositories [["jboss-dev" "http://repository.jboss.org/nexus/content/groups/developer/"]
                  ["jboss-earlyaccess" "https://maven.repository.redhat.com/earlyaccess/all/"]])
