@@ -65,7 +65,21 @@
     (doseq [[tname t] (.getTables s) :let [t (bean t)]]
       (println "      " tname)
       (doseq [c (:columns t) :let [c (bean c)]]
+        (println "        " (:name c))))
+    (println "  Procedures:")
+    (doseq [[tname t] (.getProcedures s) :let [t (bean t)]]
+      (println "      " tname)
+      (doseq [c (:parameters t) :let [c (bean c)]]
+        (println "        " (:name c))))
+    (println "  Functions:")
+    (doseq [[tname t] (.getFunctions s) :let [t (bean t)]]
+      (println "      " tname)
+      (doseq [c (:input-parameters t) :let [c (bean c)]]
         (println "        " (:name c))))))
 
 ;;; (-> metadata .getSchemas .getTables .getForeignKeys)
 ;;; ignore tables where isSystem = true
+
+;;; An alternative metadata approach: JDBC
+;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getTables md nil nil nil (into-array String ["TABLE"])))))
+;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getColumns md nil nil "ACCOUNT" nil))))
