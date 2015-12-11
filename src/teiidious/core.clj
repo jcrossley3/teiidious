@@ -1,13 +1,16 @@
 (ns teiidious.core
   (:require [clojure.java.io :as io]
-            [clojure.java.jdbc :as sql])
+            [clojure.java.jdbc :as sql]
+            [immutant.web :as web]
+            [immutant.codecs :refer (encode decode)])
   (:import [org.h2.tools Server RunScript]
            [org.teiid.runtime EmbeddedServer EmbeddedConfiguration]
            [org.teiid.translator.jdbc.h2 H2ExecutionFactory]
            [org.teiid.translator.file FileExecutionFactory]
            [org.teiid.resource.adapter.file FileManagedConnectionFactory]
            [org.teiid.query.metadata TransformationMetadata]
-           [org.teiid.example EmbeddedHelper]))
+           [org.teiid.example EmbeddedHelper]
+           [graphql GraphQL]))
 
 (defn start-db
   "Returns the DB instance"
@@ -83,3 +86,18 @@
 ;;; An alternative metadata approach: JDBC
 ;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getTables md nil nil nil (into-array String ["TABLE"])))))
 ;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getColumns md nil nil "ACCOUNT" nil))))
+
+(defn mount
+  [schema]
+  (let [graphql (GraphQL. schema)
+        handler (fn [req]
+                  {:status 200
+                   :headers {"Access-Control-Allow-Origin"  "*"
+                             "Access-Control-Allow-Headers" "Content-Type"
+                             "Access-Control-Allow-Methods" "GET,POST,OPTIONS"}
+                   :body (when (= :post (:request-method req))
+                           (as-> (decode (slurp (:body req)) :json) x
+                             (.execute graphql (:query x))
+                             {:data (.getData x) :errors (.getErrors x)}
+                             (encode x :json)))})]
+    (web/run handler)))

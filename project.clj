@@ -10,7 +10,8 @@
                  [org.jboss.teiid.connectors/connector-file "8.12.0.CR2-SNAPSHOT" :classifier "lib"]
                  [org.jboss.teiid.connectors/translator-jdbc "8.12.0.CR2-SNAPSHOT"]
                  [org.clojure/java.jdbc "0.4.2"]
-                 [com.graphql-java/graphql-java "1.2"]
-                 [org.immutant/web "2.1.0" :exclusions [org.jboss.logging/jboss-logging]]]
+                 [com.graphql-java/graphql-java "1.3"]
+                 [org.immutant/web "2.1.0" :exclusions [org.jboss.logging/jboss-logging]]
+                 [cheshire "5.4.0"]]
   :repositories [["jboss-dev" "http://repository.jboss.org/nexus/content/groups/developer/"]
                  ["jboss-earlyaccess" "https://maven.repository.redhat.com/earlyaccess/all/"]])
