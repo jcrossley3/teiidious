@@ -37,7 +37,8 @@
           will be in the form of <model name>.<table name>
         -->
         <property name="importer.useFullSchemaName" value="false"/>
-           
+        <property name="importer.tableTypes" value="TABLE,VIEW"/>
+
          <!--
             This connector is defined to reference the H2 localDS" 
           -->
