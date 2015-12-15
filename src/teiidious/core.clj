@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.java.jdbc :as sql]
             [immutant.web :as web]
-            [immutant.codecs :refer (encode decode)])
+            [immutant.codecs :refer (encode decode)]
+            [teiidious.schema :as s])
   (:import [org.h2.tools Server RunScript]
            [org.teiid.runtime EmbeddedServer EmbeddedConfiguration]
            [org.teiid.translator.jdbc.h2 H2ExecutionFactory]
@@ -50,9 +51,9 @@
   [srv & sql]
   (sql/query (db-spec srv) sql))
 
-(defn vdbs
+(defn vdb
   [server]
-  (-> server .getAdmin .getVDBs))
+  (-> server .getAdmin .getVDBs first))
 
 (defn metadata
   [vdb]
@@ -60,25 +61,16 @@
     (.getAttachment TransformationMetadata)
     .getMetadataStore))
 
-(defn dump
-  [metadata]
-  (doseq [[sname s] (.getSchemas metadata) :when (not (#{"SYS" "SYSADMIN" "pg_catalog"} sname))]
-    (println sname)
-    (println "  Tables:")
-    (doseq [[tname t] (.getTables s) :let [t (bean t)]]
-      (println "      " tname)
-      (doseq [c (:columns t) :let [c (bean c)]]
-        (println "        " (:name c))))
-    (println "  Procedures:")
-    (doseq [[tname t] (.getProcedures s) :let [t (bean t)]]
-      (println "      " tname)
-      (doseq [c (:parameters t) :let [c (bean c)]]
-        (println "        " (:name c))))
-    (println "  Functions:")
-    (doseq [[tname t] (.getFunctions s) :let [t (bean t)]]
-      (println "      " tname)
-      (doseq [c (:input-parameters t) :let [c (bean c)]]
-        (println "        " (:name c))))))
+(defn tables
+  [server]
+  (->> (vdb server)
+    metadata
+    .getSchemas
+    vals
+    (remove #(every? (memfn isSystem) (vals (.getTables %)))) ; teiid system tables
+    (map (comp vals (memfn getTables)))
+    flatten
+    (map (memfn getName))))
 
 ;;; (-> metadata .getSchemas .getTables .getForeignKeys)
 ;;; ignore tables where isSystem = true
@@ -87,17 +79,33 @@
 ;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getTables md nil nil nil (into-array String ["TABLE"])))))
 ;;; (pprint (sql/with-db-metadata [md (db-spec srv)] (sql/metadata-query (.getColumns md nil nil "ACCOUNT" nil))))
 
+(defn handler
+  [graphql]
+  (fn [req]
+    {:status 200
+     :headers {"Access-Control-Allow-Origin"  "*"
+               "Access-Control-Allow-Headers" "Content-Type"
+               "Access-Control-Allow-Methods" "GET,POST,OPTIONS"}
+     :body (when (= :post (:request-method req))
+             (as-> (decode (slurp (:body req)) :json) x
+               (.execute graphql (:query x))
+               {:data (.getData x) :errors (.getErrors x)}
+               (encode x :json)))}))
+
 (defn mount
   [schema]
-  (let [graphql (GraphQL. schema)
-        handler (fn [req]
-                  {:status 200
-                   :headers {"Access-Control-Allow-Origin"  "*"
-                             "Access-Control-Allow-Headers" "Content-Type"
-                             "Access-Control-Allow-Methods" "GET,POST,OPTIONS"}
-                   :body (when (= :post (:request-method req))
-                           (as-> (decode (slurp (:body req)) :json) x
-                             (.execute graphql (:query x))
-                             {:data (.getData x) :errors (.getErrors x)}
-                             (encode x :json)))})]
-    (web/run handler)))
+  (web/run (handler (GraphQL. schema))))
+
+
+(defn start-teiid []
+  (start-db)
+  (let [ds (datasource)]
+    (init-db ds)
+    (teiid-portfolio-server ds)))
+
+(defn start-graphql [teiid-server]
+  (->> (tables teiid-server)
+    (map (partial s/table->field (db-spec teiid-server)))
+    (apply s/query (.getName (vdb teiid-server)))
+    s/schema
+    mount))
