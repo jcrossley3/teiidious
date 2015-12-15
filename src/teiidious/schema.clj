@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.java.jdbc :as jdbc])
   (:import [graphql.schema GraphQLObjectType GraphQLSchema GraphQLFieldDefinition
-            DataFetcher DataFetchingEnvironment GraphQLNonNull GraphQLList]
+            DataFetcher DataFetchingEnvironment GraphQLNonNull GraphQLList GraphQLArgument]
            [graphql GraphQL Scalars]))
 
 (def hello
@@ -23,39 +23,56 @@
             ;; TODO: define scalar for "bigdecimal" Scalars/GraphQLFloat
             "boolean"    Scalars/GraphQLBoolean
             Scalars/GraphQLString)]
-    (if (= 0 (:nullable m))
-      (GraphQLNonNull. t)
-      t)))
+    ;; TODO: Only for fields, not arguments
+    ;; (if (= 0 (:nullable m))
+    ;;   (GraphQLNonNull. t)
+    ;;   t)
+    t))
 
-(defn column->field
-  "Expects map from result of (jdbc/metadata-query (.getColumns ...))"
-  [m]
-  (-> (GraphQLFieldDefinition/newFieldDefinition)
+(defn column->type
+  [type m]
+  (-> type
     (.type (field-type m))
     (.name (str/lower-case (:column_name m)))
     (.build)))
 
-(defn table->object
+(defn column->field [m]
+  (column->type (GraphQLFieldDefinition/newFieldDefinition) m))
+
+(defn column->argument [m]
+  (column->type (GraphQLArgument/newArgument) m))
+
+(defn columns
   "Expects table name and db connection spec"
   [db-spec table]
-  (let [columns (jdbc/with-db-metadata [md db-spec]
-                  (jdbc/metadata-query (.getColumns md nil nil table nil)))]
-    (-> (GraphQLObjectType/newObject)
-      (.name table)
-      (.fields (for [m columns] (column->field m)))
-      (.build))))
+  (jdbc/with-db-metadata [md db-spec]
+    (jdbc/metadata-query (.getColumns md nil nil table nil))))
+
+(defn table->object
+  [table columns]
+  (-> (GraphQLObjectType/newObject)
+    (.name table)
+    (.fields (for [m columns] (column->field m)))
+    (.build)))
 
 (defn table->field
   [db-spec table]
-  (-> (GraphQLFieldDefinition/newFieldDefinition)
-    (.name (str/lower-case table))
-    (.type (GraphQLList. (table->object db-spec table)))
-    (.dataFetcher
-      (reify DataFetcher
-        (get [_ ^DataFetchingEnvironment env]
-          (-> (jdbc/query db-spec [(str "select * from " table)])
-            clojure.walk/stringify-keys))))
-    (.build)))
+  (let [columns (columns db-spec table)]
+    (-> (GraphQLFieldDefinition/newFieldDefinition)
+      (.name (str/lower-case table))
+      (.type (GraphQLList. (table->object table columns)))
+      (.argument (map column->argument columns))
+      (.dataFetcher
+        (reify DataFetcher
+          (get [_ ^DataFetchingEnvironment env]
+            (let [args (into {} (remove (comp nil? second) (into {} (.getArguments env))))
+                  stmt (if (empty? args)
+                         (str "select * from " table)
+                         (str "select * from " table " where "
+                           (str/join " and " (map #(str % " = ?") (keys args)))))]
+              (-> (jdbc/query db-spec (cons stmt (vals args)))
+                clojure.walk/stringify-keys)))))
+      (.build))))
 
 (defn query
   [name & fields]
