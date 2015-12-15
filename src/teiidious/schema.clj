@@ -18,29 +18,29 @@
 (defn field-type
   "SQL to GraphQL type mapping"
   [m]
-  (let [t (case (:type_name m)
-            "integer"    Scalars/GraphQLInt
-            ;; TODO: define scalar for "bigdecimal" Scalars/GraphQLFloat
-            "boolean"    Scalars/GraphQLBoolean
-            Scalars/GraphQLString)]
-    ;; TODO: Only for fields, not arguments
-    ;; (if (= 0 (:nullable m))
-    ;;   (GraphQLNonNull. t)
-    ;;   t)
-    t))
+  (case (:type_name m)
+    "integer"    Scalars/GraphQLInt
+    ;; TODO: define scalar for "bigdecimal" Scalars/GraphQLFloat
+    "boolean"    Scalars/GraphQLBoolean
+    Scalars/GraphQLString))
 
-(defn column->type
+(defn check-required
   [type m]
-  (-> type
-    (.type (field-type m))
+  (if (= 0 (:nullable m))
+    (GraphQLNonNull. type)
+    type))
+
+(defn column->field [m]
+  (-> (GraphQLFieldDefinition/newFieldDefinition)
+    (.type (check-required (field-type m) m))
     (.name (str/lower-case (:column_name m)))
     (.build)))
 
-(defn column->field [m]
-  (column->type (GraphQLFieldDefinition/newFieldDefinition) m))
-
 (defn column->argument [m]
-  (column->type (GraphQLArgument/newArgument) m))
+  (-> (GraphQLArgument/newArgument)
+    (.type (field-type m))
+    (.name (str/lower-case (:column_name m)))
+    (.build)))
 
 (defn columns
   "Expects table name and db connection spec"
