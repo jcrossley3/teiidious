@@ -69,8 +69,7 @@
     vals
     (remove #(every? (memfn isSystem) (vals (.getTables %)))) ; teiid system tables
     (map (comp vals (memfn getTables)))
-    flatten
-    (map (memfn getName))))
+    flatten))
 
 ;;; (-> metadata .getSchemas .getTables .getForeignKeys)
 ;;; ignore tables where isSystem = true
@@ -92,9 +91,9 @@
                {:data (.getData x) :errors (.getErrors x)}
                (encode x :json)))}))
 
-(defn mount
+(defn start-web
   [schema]
-  (web/run (handler (GraphQL. schema))))
+  (web/run (handler schema)))
 
 
 (defn start-teiid []
@@ -103,9 +102,23 @@
     (init-db ds)
     (teiid-portfolio-server ds)))
 
-(defn start-graphql [teiid-server]
+(defn create-schema [teiid-server]
   (->> (tables teiid-server)
+    (map (memfn getName))
     (map (partial s/table->field (db-spec teiid-server)))
     (apply s/query (.getName (vdb teiid-server)))
     s/schema
-    mount))
+    GraphQL.))
+
+(defn start
+  []
+  (let [teiid (start-teiid)]
+    {:teiid teiid
+     :web   (-> teiid
+                create-schema
+                start-web)}))
+
+(defn stop
+  [started]
+  (web/stop (:web started))
+  (.stop (:teiid started)))

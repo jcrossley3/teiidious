@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.java.jdbc :as jdbc])
   (:import [graphql.schema GraphQLObjectType GraphQLSchema GraphQLFieldDefinition
-            DataFetcher DataFetchingEnvironment GraphQLNonNull GraphQLList GraphQLArgument]
+            DataFetcher DataFetchingEnvironment GraphQLNonNull GraphQLList GraphQLArgument
+            GraphQLTypeReference]
            [graphql GraphQL Scalars]))
 
 (def hello
@@ -69,7 +70,7 @@
                   stmt (if (empty? args)
                          (str "select * from " table)
                          (str "select * from " table " where "
-                           (str/join " and " (map #(str % " = ?") (keys args)))))]
+                              (str/join " and " (map #(str % " = ?") (keys args)))))]
               (-> (jdbc/query db-spec (cons stmt (vals args)))
                 clojure.walk/stringify-keys)))))
       (.build))))

@@ -2,6 +2,8 @@
   (:require [clojure.test :refer :all]
             [teiidious.core :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(defonce teiid-server (start-teiid))
+
+(deftest simple-query
+  (let [schema (create-schema teiid-server)]
+    (is (= 17 (-> schema (.execute "{account {ssn}}") .getData (get "account") count)))))
