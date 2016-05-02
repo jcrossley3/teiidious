@@ -4,11 +4,11 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 [org.jboss.teiid.examples/teiid-examples-common "1.0.0-SNAPSHOT"]
+                 [org.jboss.teiid.examples/embedded-portfolio "1.0.1-SNAPSHOT"]
                  [com.h2database/h2 "1.3.152"]
-                 [org.jboss.teiid.connectors/translator-file "8.12.0.CR2-SNAPSHOT"]
-                 [org.jboss.teiid.connectors/connector-file "8.12.0.CR2-SNAPSHOT" :classifier "lib"]
-                 [org.jboss.teiid.connectors/translator-jdbc "8.12.0.CR2-SNAPSHOT"]
+                 [org.jboss.teiid.connectors/translator-file "9.0.0.Alpha2"]
+                 [org.jboss.teiid.connectors/connector-file "9.0.0.Alpha2"]
+                 [org.jboss.teiid.connectors/translator-jdbc "9.0.0.Alpha2"]
                  [org.clojure/java.jdbc "0.4.2"]
                  [com.graphql-java/graphql-java "1.3"]
                  [org.immutant/web "2.1.0" :exclusions [org.jboss.logging/jboss-logging]]
